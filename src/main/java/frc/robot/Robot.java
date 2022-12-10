@@ -100,6 +100,9 @@ public class Robot extends TimedRobot {
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
 
+    m_leftmotors.setInverted(true); //Making sure they go the right way
+    m_rightmotors.setInverted(false);
+
     CameraServer.startAutomaticCapture();
   }
 
@@ -163,6 +166,7 @@ public class Robot extends TimedRobot {
 
     //Storage/Shooter Control
     if (joyXbox.getAButtonPressed()) {
+      //System.out.println("AAAAAAAAAAAAAAAAAAAAAAA"); screaming is just so unnecesary
       m_shootymotor.set(0.7);
     } else if (joyXbox.getStartButtonPressed()) {
       m_shootymotor.set(-0.7);
@@ -173,7 +177,10 @@ public class Robot extends TimedRobot {
 
   /** This function is called once when the robot is disabled. */
   @Override
-  public void disabledInit() {}
+  public void disabledInit() {
+    m_shootymotor.stopMotor();
+    m_drive.stopMotor();
+  }
 
   /** This function is called periodically when disabled. */
   @Override
