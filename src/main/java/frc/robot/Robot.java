@@ -32,10 +32,10 @@ import edu.wpi.first.cameraserver.CameraServer;
  */
 public class Robot extends TimedRobot {
   /*Auto Switching setup */
-  private static final String kDefaultAuto = "Default";
-  private static final String kCustomAuto = "My Auto";
+  private static final String kDefaultAuto = "Just move forwards and shoot and pray";
+  //private static final String kCustomAuto = "My Auto";
   private String m_autoSelected;
-  private final SendableChooser<String> m_chooser = new SendableChooser<>();
+  //private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
   /*
   Motor Drivers: 
@@ -81,14 +81,17 @@ public class Robot extends TimedRobot {
 
   private final Solenoid s_lift = new Solenoid(PneumaticsModuleType.CTREPCM, 1);
 
-  private final Joystick joyL = new Joystick(1);
-  private final Joystick joyR = new Joystick(2);
+  private final Joystick joyL = new Joystick(0);
+  private final Joystick joyR = new Joystick(1);
 
   private final XboxController joyXbox = new XboxController(3);
+  private double autoStartTime = 0;
 
   private void bindButtons() {
     //TODO;
   }
+
+  private final String[] things = {kDefaultAuto};
 
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -96,9 +99,10 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
-    m_chooser.addOption("My Auto", kCustomAuto);
-    SmartDashboard.putData("Auto choices", m_chooser);
+    //m_chooser.setDefaultOption(kDefaultAuto + " (Default Auto)", kDefaultAuto);
+    //m_chooser.addOption("Do Nothing???", "");
+    SmartDashboard.putStringArray("Auto List", things);
+
 
     m_leftmotors.setInverted(true); //Making sure they go the right way
     m_rightmotors.setInverted(false);
@@ -128,21 +132,26 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    m_autoSelected = m_chooser.getSelected();
-    // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
+    m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
+    //m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     System.out.println("Auto selected: " + m_autoSelected);
+    autoStartTime = System.currentTimeMillis();
   }
 
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() {
     switch (m_autoSelected) {
-      case kCustomAuto:
+      /*case kCustomAuto:
         // Put custom auto code here
-        break;
+        break;*/
       case kDefaultAuto:
       default:
-        // Put default auto code here
+        if (System.currentTimeMillis() - autoStartTime > 750) {
+          m_drive.stopMotor();
+        } else {
+          m_drive.tankDrive(-0.8, -0.8);
+        }
         break;
     }
   }
@@ -153,11 +162,34 @@ public class Robot extends TimedRobot {
     System.out.println("Teleop Initialized!");
   }
 
+  public double[] motorStats = {0,0,0,0}; 
+
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
+
+    double l = joyL.getY();
+    double r = joyR.getY();
+
+    if (l > 0.08) l = l/2 + 0.4; //Bump up motor power so stick operates in usable range
+    if (r > 0.08) r = r/2 + 0.4; //Instead of having a large region where it's unresponsive
+    if (l < -0.08) l = l/2 - 0.4;
+    if (r < -0.08) r = r/2 -0.4;
+    
+    if (l > 1) l=1;
+    if (r > 1) r=1;
+    if (l < -1) l=-1;
+    if (r < -1) r=-1;
+
+    motorStats[0] = l;
+    motorStats[1] = r;
+    motorStats[2] = l;
+    motorStats[3] = r;
+
+
     //Tank Drive
-    m_drive.tankDrive(joyL.getY(), joyR.getY());
+    m_drive.tankDrive(l, r);
+    SmartDashboard.putNumberArray("RobotDrive Motors", motorStats);
 
     //Tube Lifting
     if (joyL.getTriggerPressed()) {
@@ -167,9 +199,9 @@ public class Robot extends TimedRobot {
     //Storage/Shooter Control
     if (joyXbox.getAButtonPressed()) {
       //System.out.println("AAAAAAAAAAAAAAAAAAAAAAA"); screaming is just so unnecesary
-      m_shootymotor.set(0.7);
+      m_shootymotor.set(1);
     } else if (joyXbox.getStartButtonPressed()) {
-      m_shootymotor.set(-0.7);
+      m_shootymotor.set(-1);
     } else if (joyXbox.getAButtonReleased() || joyXbox.getStartButtonReleased()) {
       m_shootymotor.set(0);
     }

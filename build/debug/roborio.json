@@ -3,7 +3,7 @@
     "type": "java",
     "name": "frcJava",
     "port": 8349,
-    "target": "roborio-5970-FRC",
+    "target": "10.59.70.2",
     "project": "2022-bb-wills"
   }
 ]
