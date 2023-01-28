@@ -10,11 +10,13 @@ import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.motorcontrol.MotorController;
 import edu.wpi.first.wpilibj.motorcontrol.MotorControllerGroup;
 
-import com.ctre.phoenix.motorcontrol.ControlMode;
-import com.ctre.phoenix.motorcontrol.can.WPI_VictorSPX;
+import com.revrobotics.CANSparkMax;
+import com.revrobotics.CANSparkMaxLowLevel.MotorType;
+
+import edu.wpi.first.wpilibj.ADXRS450_Gyro;
+import edu.wpi.first.wpilibj.SPI;
 
 import edu.wpi.first.wpilibj.Joystick;
-import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 
 import edu.wpi.first.wpilibj.PneumaticsModuleType;
 import edu.wpi.first.wpilibj.Solenoid;
@@ -39,47 +41,30 @@ public class Robot extends TimedRobot {
 
   /*
   Motor Drivers: 
-  Marked as 2: CAN41
-  Marked as 1: CAN42
-  Marked as 4: CAN43
-  Marked as 3: CAN44
-  Marked as 6: CAN45
-  Marked as 5: CAN46
-
-  Current arrangement on board:
-
-            6 3 1 (On Bottom)
-
-            5 4 2 (On Top)
-  (Far Left)     (Far right)
-
-  Use markings on CONNECTORS, NOT ON MOTOR CONTROLLERS!
-
   
-  Currently, 
-  1 and 2 (42 & 41 on CAN) are the left-side drive motors,
-  3 and 4 (44 & 3 on CAN) are the right-side drive motors,
-  and 5   (46 on CAN) is Hold/Shoot.
-
-  Why is it marked this way?
-
-  I don't know!!!
-
-  The Dual-Acting piston is controlled by Port 1 on the PCM, which is the one after port 0 (which is unused).
 
   */
-  private final WPI_VictorSPX m_shootymotor = new WPI_VictorSPX(46);
 
 
-  private final MotorController m_leftmotors = 
-  new MotorControllerGroup(new WPI_VictorSPX(41), new WPI_VictorSPX(42));
+  /*private final MotorController m_leftmotors = 
+  new MotorControllerGroup(
+    new CANSparkMax(31, MotorType.kBrushless), 
+    new CANSparkMax(32, MotorType.kBrushless), 
+    new CANSparkMax(33, MotorType.kBrushless));
 
   private final MotorController m_rightmotors = 
-  new MotorControllerGroup(new WPI_VictorSPX(43), new WPI_VictorSPX(44));
+  new MotorControllerGroup(
+    new CANSparkMax(34, MotorType.kBrushless),
+    new CANSparkMax(35, MotorType.kBrushless),
+    new CANSparkMax(36, MotorType.kBrushless));*/
 
-  private final DifferentialDrive m_drive = new DifferentialDrive(m_leftmotors, m_rightmotors);
+  //private final DifferentialDrive m_drive = new DifferentialDrive(m_leftmotors, m_rightmotors);
 
-  private final Solenoid s_lift = new Solenoid(PneumaticsModuleType.CTREPCM, 1);
+
+  private final ADXRS450_Gyro m_gyro = new ADXRS450_Gyro(SPI.Port.kOnboardCS0);
+
+
+  //private final Solenoid s_lift = new Solenoid(PneumaticsModuleType.CTREPCM, 1);
 
   private final Joystick joyL = new Joystick(0);
   private final Joystick joyR = new Joystick(1);
@@ -104,8 +89,9 @@ public class Robot extends TimedRobot {
     SmartDashboard.putStringArray("Auto List", things);
 
 
-    m_leftmotors.setInverted(true); //Making sure they go the right way
-    m_rightmotors.setInverted(false);
+    /*m_leftmotors.setInverted(true); //Making sure they go the right way
+    m_rightmotors.setInverted(false);*/
+    m_gyro.calibrate();
 
     CameraServer.startAutomaticCapture();
   }
@@ -147,11 +133,7 @@ public class Robot extends TimedRobot {
         break;*/
       case kDefaultAuto:
       default:
-        if (System.currentTimeMillis() - autoStartTime > 750) {
-          m_drive.stopMotor();
-        } else {
-          m_drive.tankDrive(-0.8, -0.8);
-        }
+      System.out.println("This auto was removed");
         break;
     }
   }
@@ -187,31 +169,29 @@ public class Robot extends TimedRobot {
     motorStats[3] = r;
 
 
-    //Tank Drive
-    m_drive.tankDrive(l, r);
+    //Tank Drive1
+    //m_drive.tankDrive(l, r);
     SmartDashboard.putNumberArray("RobotDrive Motors", motorStats);
 
-    //Tube Lifting
-    if (joyL.getTriggerPressed()) {
-      s_lift.toggle();
-    }
+    double turningValue = m_gyro.getAngle();
+    //System.out.println(turningValue);
 
-    //Storage/Shooter Control
-    if (joyXbox.getAButtonPressed()) {
-      //System.out.println("AAAAAAAAAAAAAAAAAAAAAAA"); screaming is just so unnecesary
-      m_shootymotor.set(1);
-    } else if (joyXbox.getStartButtonPressed()) {
-      m_shootymotor.set(-1);
-    } else if (joyXbox.getAButtonReleased() || joyXbox.getStartButtonReleased()) {
-      m_shootymotor.set(0);
-    }
+    SmartDashboard.putNumber("Gyro", turningValue);
+
+
+
+    //Tube Lifting
+    /*if (joyL.getTriggerPressed()) {
+      s_lift.toggle();
+    }*/
+
+    
   }
 
   /** This function is called once when the robot is disabled. */
   @Override
   public void disabledInit() {
-    m_shootymotor.stopMotor();
-    m_drive.stopMotor();
+    //m_drive.stopMotor();
   }
 
   /** This function is called periodically when disabled. */
