@@ -4,27 +4,21 @@
 
 package frc.robot;
 
+import com.revrobotics.CANSparkMax;
+import com.revrobotics.CANSparkMaxLowLevel.MotorType;
+
+import edu.wpi.first.cameraserver.CameraServer;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.trajectory.TrapezoidProfile;
+import edu.wpi.first.wpilibj.ADXRS450_Gyro;
+import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.motorcontrol.MotorController;
 import edu.wpi.first.wpilibj.motorcontrol.MotorControllerGroup;
-
-import com.revrobotics.CANSparkMax;
-import com.revrobotics.CANSparkMaxLowLevel.MotorType;
-
-import edu.wpi.first.wpilibj.ADXRS450_Gyro;
-import edu.wpi.first.wpilibj.SPI;
-
-import edu.wpi.first.wpilibj.Joystick;
-
-import edu.wpi.first.wpilibj.PneumaticsModuleType;
-import edu.wpi.first.wpilibj.Solenoid;
-
-import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-
-import edu.wpi.first.cameraserver.CameraServer;
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -46,7 +40,7 @@ public class Robot extends TimedRobot {
   */
 
 
-  /*private final MotorController m_leftmotors = 
+  private final MotorController m_leftmotors = 
   new MotorControllerGroup(
     new CANSparkMax(31, MotorType.kBrushless), 
     new CANSparkMax(32, MotorType.kBrushless), 
@@ -56,12 +50,16 @@ public class Robot extends TimedRobot {
   new MotorControllerGroup(
     new CANSparkMax(34, MotorType.kBrushless),
     new CANSparkMax(35, MotorType.kBrushless),
-    new CANSparkMax(36, MotorType.kBrushless));*/
+    new CANSparkMax(36, MotorType.kBrushless));
 
-  //private final DifferentialDrive m_drive = new DifferentialDrive(m_leftmotors, m_rightmotors);
+  private final DifferentialDrive m_drive = new DifferentialDrive(m_leftmotors, m_rightmotors);
 
 
   private final ADXRS450_Gyro m_gyro = new ADXRS450_Gyro(SPI.Port.kOnboardCS0);
+  private SimpleMotorFeedforward ffR;
+  private SimpleMotorFeedforward ffL;
+  private TrapezoidProfile.Constraints driveConstraints;
+  private TrapezoidProfile.State driveGoal;
 
 
   //private final Solenoid s_lift = new Solenoid(PneumaticsModuleType.CTREPCM, 1);
@@ -72,25 +70,40 @@ public class Robot extends TimedRobot {
   private final XboxController joyXbox = new XboxController(3);
   private double autoStartTime = 0;
 
-  private void bindButtons() {
-    //TODO;
-  }
+  private double kS, kV, kA, kMaxVel, kMaxAcc;
 
   private final String[] things = {kDefaultAuto};
 
-  /**
-   * This function is run when the robot is first started up and should be used for any
-   * initialization code.
-   */
+
+  public void getParamsFromSmartDashboard() {
+    boolean changed = false;
+    if (SmartDashboard.getNumber("kS", 0) != kS) {changed = true; kS = SmartDashboard.getNumber("kS", 0);};
+    if (SmartDashboard.getNumber("kV", 0) != kV) {changed = true; kV = SmartDashboard.getNumber("kV", 0);};
+    if (SmartDashboard.getNumber("kA", 0) != kA) {changed = true; kA = SmartDashboard.getNumber("kA", 0);};
+    if (changed) {
+      ffL = new SimpleMotorFeedforward(kS, kV, kA);
+      ffR = new SimpleMotorFeedforward(kS, kV, kA);
+    }
+
+  }
+
   @Override
   public void robotInit() {
     //m_chooser.setDefaultOption(kDefaultAuto + " (Default Auto)", kDefaultAuto);
     //m_chooser.addOption("Do Nothing???", "");
     SmartDashboard.putStringArray("Auto List", things);
 
+    kS = 0;
+    kV = 0;
+    kA = 0;
 
-    /*m_leftmotors.setInverted(true); //Making sure they go the right way
-    m_rightmotors.setInverted(false);*/
+    ffL = new SimpleMotorFeedforward(kS, kV, kA);
+    ffR = new SimpleMotorFeedforward(kS, kV, kA);
+
+
+
+    m_leftmotors.setInverted(true); //Making sure they go the right way
+    m_rightmotors.setInverted(false);
     m_gyro.calibrate();
 
     CameraServer.startAutomaticCapture();
@@ -145,23 +158,15 @@ public class Robot extends TimedRobot {
   }
 
   public double[] motorStats = {0,0,0,0}; 
+  public double kDt = 0.02;
 
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
 
-    double l = joyL.getY();
-    double r = joyR.getY();
-
-    if (l > 0.08) l = l/2 + 0.4; //Bump up motor power so stick operates in usable range
-    if (r > 0.08) r = r/2 + 0.4; //Instead of having a large region where it's unresponsive
-    if (l < -0.08) l = l/2 - 0.4;
-    if (r < -0.08) r = r/2 -0.4;
     
-    if (l > 1) l=1;
-    if (r > 1) r=1;
-    if (l < -1) l=-1;
-    if (r < -1) r=-1;
+    double l = ffL.calculate(joyL.getY());
+    double r = ffR.calculate(joyR.getY());
 
     motorStats[0] = l;
     motorStats[1] = r;
@@ -169,8 +174,8 @@ public class Robot extends TimedRobot {
     motorStats[3] = r;
 
 
-    //Tank Drive1
-    //m_drive.tankDrive(l, r);
+    //Tank Drive1-
+    m_drive.tankDrive(l, r);
     SmartDashboard.putNumberArray("RobotDrive Motors", motorStats);
 
     double turningValue = m_gyro.getAngle();
